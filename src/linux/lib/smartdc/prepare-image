@@ -35,13 +35,13 @@ check_root() {
 }
 
 check_selinux() {
-	if [[ -f /etc/selinux/config ]] ; then
-		local mode=$(grep '^SELINUX=' /etc/selinux/config | awk -F'=' '{print $2}')
-		if [[ "${mode}" != "disabled" ]] ; then
-			addwarn "Selinux is not disabled. Do you also juggle chainsaws?"
-			addwarn "To disable set SELINUX=disabled in /etc/selinux/config"
-		fi
-	fi
+  if [[ -f /etc/selinux/config ]] ; then
+    local mode=$(grep '^SELINUX=' /etc/selinux/config | awk -F'=' '{print $2}')
+    if [[ "${mode}" != "disabled" ]] ; then
+      addwarn "Selinux is not disabled. Do you also juggle chainsaws?"
+      addwarn "To disable set SELINUX=disabled in /etc/selinux/config"
+    fi
+  fi
 }
 
 cleanup_logs() {
@@ -68,8 +68,8 @@ cleanup_ssh() {
 }
 
 cleanup_disks() {
-	info "removing /dev/vdb entries from fstab"
-	sed -i '/^\/dev\/vdb/d' /etc/fstab
+  info "removing /dev/vdb entries from fstab"
+  sed -i '/^\/dev\/vdb/d' /etc/fstab
 }
 
 cleanup_metadata() {
@@ -83,9 +83,9 @@ prepare_redhat() {
   info "cleaning up network devices"
   
   rm -f /etc/udev/rules.d/70-persistent-net.rules
-	rm -f /lib/udev/rules.d/70-persistent-net-generator.rules
+  rm -f /lib/udev/rules.d/70-persistent-net-generator.rules
 
-	find /etc/sysconfig/network-scripts -name "ifcfg-eth*" | xargs rm -f
+  find /etc/sysconfig/network-scripts -name "ifcfg-eth*" | xargs rm -f
   find /var/lib/dhclient -type f | xargs rm -f 
 
   info "cleaning up package cache"
@@ -116,8 +116,8 @@ prepare_redhat() {
 prepare_debian() {
   info "cleaning up network devices"
 
-	rm -f /etc/udev/rules.d/70-persistent-net.rules
-	rm -f /lib/udev/rules.d/70-persistent-net-generator.rules
+  rm -f /etc/udev/rules.d/70-persistent-net.rules
+  rm -f /lib/udev/rules.d/70-persistent-net-generator.rules
 
   if [[ -d /var/lib/dhcp3 ]] ; then 
     find /var/lib/dhcp3 -type f -name "*.leases" | xargs rm -f
@@ -127,7 +127,7 @@ prepare_debian() {
 
   if [[ -f /etc/network/interfaces ]] ; then
     rm -f /etc/network/interfaces
-		out=$(dpkg-reconfigure ifupdown 2>&1 > /dev/null)
+    out=$(dpkg-reconfigure ifupdown 2>&1 > /dev/null)
     echo "" >> /etc/network/interfaces
     echo "auto eth0" >> /etc/network/interfaces
     echo "iface eth0 inet dhcp" >> /etc/network/interfaces

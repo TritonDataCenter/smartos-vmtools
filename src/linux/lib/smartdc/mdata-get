@@ -30,15 +30,15 @@ case $(uname -s) in
     SERIAL_DEV="/dev/ttyS1"
     ;;
   FreeBSD)
-		SERIAL_DEV="/dev/cuau1"
-		;;
+    SERIAL_DEV="/dev/cuau1"
+    ;;
   SunOS)
-		NC_SOCK="/var/run/smartdc/metadata.sock"
-		DISABLE_ECHO="no"
-		;;
+    NC_SOCK="/var/run/smartdc/metadata.sock"
+    DISABLE_ECHO="no"
+    ;;
   *)
-		echo "Don't know which serial to use for $(uname -s)" >&2
-		exit 3
+    echo "Don't know which serial to use for $(uname -s)" >&2
+    exit 3
   ;;
 esac
 
@@ -64,19 +64,19 @@ while [[ ${keep_trying} -eq 1 ]]; do
   read -t ${TIMEOUT} status
   retval=$?
   if [[ ${retval} -gt 128 ]]; then
-		echo "mdata-get: timeout getting status. (exit code: ${retval})" >&2
-		continue
+    echo "mdata-get: timeout getting status. (exit code: ${retval})" >&2
+    continue
   elif [[ ${retval} -ne 0 ]]; then
-		echo "mdata-get: failed to read data from metadata agent. (exit code: ${retval})" >&2
-		exit 2
+    echo "mdata-get: failed to read data from metadata agent. (exit code: ${retval})" >&2
+    exit 2
   fi
 
   if [[ ${status} == "NOTFOUND" ]]; then
-		echo "No metadata for ${key}"
-		exit 1
+    echo "No metadata for ${key}"
+    exit 1
   elif [[ ${status} != "SUCCESS" ]]; then
-		echo "Error getting metadata for key ${key}: ${status}"
-		exit 2
+    echo "Error getting metadata for key ${key}: ${status}"
+    exit 2
   fi
 
   while read -t ${TIMEOUT} line; do
