@@ -1,0 +1,13 @@
+#!/bin/bash
+#
+# Copyright (c) 2011 Joyent Inc., All rights reserved.
+#
+
+/lib/smartdc/mdata-get user-script > /root/user-script 2>>/dev/console
+if [[ $? -eq 0 ]] ; then
+  if [[ ! -f /root/.uscript.lock ]] ; then
+    touch /root/.uscript.lock
+    chmod +x /root/user-script
+    exec /root/user-script
+  fi
+fi

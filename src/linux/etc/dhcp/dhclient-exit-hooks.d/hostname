@@ -1,0 +1,4 @@
+# Sets the hostname from the dhclient
+
+echo $new_host_name > /etc/hostname
+out=$(hostname $new_host_name)

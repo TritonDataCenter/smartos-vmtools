@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+
+# Copyright 2011, Joyent Inc. All rights reserved
+# formats the secondary disk
+
+DEBUG=true
+
+fatal() {
+  printf "(fatal) %s\n" "$@"
+  exit 1;
+}
+
+debug() {
+  if [[ -n "$DEBUG" ]]; then
+    printf "(debug) %s\n" "$@"
+  fi
+}
+
+info() {
+  printf "(info) %s\n" "$@"
+}
+
+SFDISK=`which sfdisk 2> /dev/null`
+
+if [[ ! -e /dev/vdb ]] ; then
+  fatal "secondary disk '/dev/vdb' not found. exiting."
+fi
+
+if [[ -z $SFDISK ]] ; then
+  fatal "sfdisk binary not found. exiting."
+fi
+
+## Sanity check
+partexists=$(sfdisk -l /dev/vdb 2>/dev/null | grep vdb1 | awk '{print $8}')
+if [ "$partexists" != "" ] ; then
+  debug "partition table already exists. skipping."
+  exit 0
+fi
+
+# Otherwise we're creating the partition, formatting it, and mounting it
+info "creating partition /dev/vdb1"
+echo "0,,L,*" | sfdisk /dev/vdb 2>/dev/null >/dev/null
+
+info "creating ext4 filesystem on /dev/vdb1"
+mkfs.ext4 /dev/vdb1 2>/dev/null >/dev/null
+
+fsentry=$(grep '/dev/vdb1' /etc/fstab)
+if [[ -z $fsentry ]] ; then
+  info "adding fstab entry for /dev/vdb1"
+  [[ ! -e /data ]] && mkdir /data
+  printf "/dev/vdb1\t/data\t\text4\tdefaults\t0\t0\n" >> /etc/fstab
+fi
+
+# Useful for prepare-image
+mounted=$(mount -l | grep '^/dev/vdb1 ' | wc -l)
+if [[ "${mounted}" -eq 0 ]] ; then 
+  info "mounting /dev/vdb1 as /data"
+  mount /data
+fi
+
+echo "Done"

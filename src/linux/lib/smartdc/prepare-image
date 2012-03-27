@@ -1,0 +1,194 @@
+#!/bin/bash
+
+WARNING=""
+
+addwarn() {
+  WARNING="${WARNING}(warning) $@\n"
+}
+
+fatal() {
+  printf "(fatal) %s\n" "$@"
+  exit 1
+}
+
+info() {
+  printf "(info) %s\n" "$@"
+}
+
+warn() {
+  printf "(warn) %s\n" "$@"
+}
+
+separator() {
+  for i in {1..78} ; do
+    printf "="
+  done
+  printf "\n"
+}
+
+check_root() {
+  if [[ $EUID != 0 ]] ; then
+    echo "You must be root to run this command"
+    echo "try again with 'sudo `basename $`'"
+    exit 1
+  fi
+}
+
+check_selinux() {
+	if [[ -f /etc/selinux/config ]] ; then
+		local mode=$(grep '^SELINUX=' /etc/selinux/config | awk -F'=' '{print $2}')
+		if [[ "${mode}" != "disabled" ]] ; then
+			addwarn "Selinux is not disabled. Do you also juggle chainsaws?"
+			addwarn "To disable set SELINUX=disabled in /etc/selinux/config"
+		fi
+	fi
+}
+
+cleanup_logs() {
+  info "cleaning up logs"
+  find /var/log -type f | xargs rm -f
+  touch /var/log/wtmp
+}
+
+cleanup_root() {
+  info "cleaning up root account"
+  rm -f /root/.bash_history
+  rm -f /root/.viminfo
+  local passwd=$(grep ^root: /etc/shadow- | awk -F ':' '{print $2}')
+  if [[ -n $passwd ]] ; then
+    addwarn "root user has a password set. This is a potential vulnerability"
+    addwarn "consider removing the password with 'passwd -d root'."
+  fi
+}
+
+cleanup_ssh() {
+  info "cleaning up ssh"
+  find /etc/ssh -type f -name "ssh_host_*" | xargs rm -f    
+  rm -f /root/.ssh/authorized_keys
+}
+
+cleanup_disks() {
+	info "removing /dev/vdb entries from fstab"
+	sed -i '/^\/dev\/vdb/d' /etc/fstab
+}
+
+cleanup_metadata() {
+  info "cleaning up meta data"
+  rm -f /root/user-script
+  rm -f /root/user-data
+}
+
+# Redhat / CentOS specific commands go here
+prepare_redhat() {
+  info "cleaning up network devices"
+  
+  rm -f /etc/udev/rules.d/70-persistent-net.rules
+	rm -f /lib/udev/rules.d/70-persistent-net-generator.rules
+
+	find /etc/sysconfig/network-scripts -name "ifcfg-eth*" | xargs rm -f
+  find /var/lib/dhclient -type f | xargs rm -f 
+
+  info "cleaning up package cache"
+  out=$(yum clean packages)
+  
+  if [[ -z `which arping` ]] ; then
+    addwarn "arping not found!"
+    addwarn "to install arping run 'yum install arping'"
+  fi
+
+  if [[ -z `which lsb_release` ]] ; then
+    addwarn "lsb_release not found!"
+    addwarn "To install lsb_release run 'yum install redhat-lsb'.";
+  fi
+
+  local rpmbin=$(which rpm 2>/dev/null)
+  if [[ -e ${rpmbin} ]] ; then
+    out=$($rpmbin -qa acpid)
+    if [[ -z ${out} ]]; then
+      addwarn "ACPID not found. Lifecycle management will be degraded!"
+      addwarn "To install acpid run 'yum install acpid'."
+    fi
+  fi
+
+}
+
+# Debian / Ubuntu specific commands go here
+prepare_debian() {
+  info "cleaning up network devices"
+
+	rm -f /etc/udev/rules.d/70-persistent-net.rules
+	rm -f /lib/udev/rules.d/70-persistent-net-generator.rules
+
+  if [[ -d /var/lib/dhcp3 ]] ; then 
+    find /var/lib/dhcp3 -type f -name "*.leases" | xargs rm -f
+  elif [[ -d /var/lib/dhcp ]] ; then
+    find /var/lib/dhcp -type f -name "*.leases" | xargs rm -f
+  fi
+
+  if [[ -f /etc/network/interfaces ]] ; then
+    rm -f /etc/network/interfaces
+		out=$(dpkg-reconfigure ifupdown 2>&1 > /dev/null)
+    echo "" >> /etc/network/interfaces
+    echo "auto eth0" >> /etc/network/interfaces
+    echo "iface eth0 inet dhcp" >> /etc/network/interfaces
+  fi
+  
+  info "cleaning up package cache"
+  out=$(apt-get clean)
+
+  if [[ -z `which arping` ]] ; then
+    addwarn "arping not found!"
+    addwarn "to install arping run 'apt-get install arping'."
+  fi
+  
+  local dpkgbin=$(which dpkg 2>/dev/null)
+  if [[ -e ${dpkgbin} ]] ; then
+    out=$($dpkgbin -l acpid | grep ^ii | wc -l)
+    if [[ ${out} == "0" ]]; then
+      addwarn "ACPID not found. Lifecycle management will be degraded!"
+      addwarn "To install acpid run 'apt-get install acpid'."
+    fi
+  fi
+}
+
+## MAIN ##
+
+separator
+printf "Prepare-image\n"
+separator
+
+case `uname -s` in
+  Linux)
+    if [ -f /etc/redhat-release ] ; then
+      prepare_redhat
+    elif [ -f /etc/debian_version ] ; then
+      prepare_debian
+    fi
+    check_selinux
+    cleanup_disks
+    cleanup_logs
+    cleanup_ssh
+    cleanup_root
+    cleanup_metadata
+    ;;
+  *)
+    warn "OS specific features not implemented"
+    ;;
+esac
+
+
+if [[ ${WARNING} != "" ]] ; then
+  printf "\n"
+  separator
+  printf "${WARNING}"
+  separator
+  printf "\n\n"
+  exit 1
+else
+  printf "\n"
+  separator
+  printf "(info) you may now snapshot your machine\n"
+  separator
+  printf "\n\n"
+  exit 0
+fi
