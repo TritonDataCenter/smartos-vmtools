@@ -3,6 +3,13 @@
 The VM Guest tools contains scripts and drivers that are used to create
 virtualized machine images in SmartOS.
 
+## Installing
+
+You can run './bin/build-image' which will create an ISO, ZIP and TAR archives
+for the tools. The tools include both the Windows and Linux tools. The reason
+they are created this way is so you can use an ISO to load Windows drivers
+during install time, and a tarball or zipfile after a system is up and running.
+
 ## Windows
 
 The windows directory contains signed VirtIO drivers, as well as some scripts
