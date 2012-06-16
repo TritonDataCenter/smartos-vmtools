@@ -54,7 +54,7 @@ cleanup_root() {
   info "cleaning up root account"
   rm -f /root/.bash_history
   rm -f /root/.viminfo
-  local passwd=$(grep ^root: /etc/shadow- | awk -F ':' '{print $2}')
+  local passwd=$(grep ^root: /etc/shadow | awk -F ':' '{print $2}' | sed -e 's/^!$//')
   if [[ -n $passwd ]] ; then
     addwarn "root user has a password set. This is a potential vulnerability"
     addwarn "consider removing the password with 'passwd -d root'."
