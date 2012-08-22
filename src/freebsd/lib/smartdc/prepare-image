@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+
+WARNING=""
+
+addwarn() {
+  WARNING="${WARNING}(warning) $@\n"
+}
+
+fatal() {
+  printf "(fatal) %s\n" "$@"
+  exit 1
+}
+
+info() {
+  printf "(info) %s\n" "$@"
+}
+
+warn() {
+  printf "(warn) %s\n" "$@"
+}
+
+separator() {
+  for i in {1..78} ; do
+    printf "="
+  done
+  printf "\n"
+}
+
+prepare_freebsd() {
+}
+
+check_root() {
+  if [[ $EUID != 0 ]] ; then
+    echo "You must be root to run this command"
+    echo "try again with 'sudo `basename $`'"
+    exit 1
+  fi
+}
+
+cleanup_logs() {
+  info "cleaning up logs"
+  find /var/log -type f | xargs rm -f
+}
+
+cleanup_root() {
+  info "cleaning up root account"
+  rm -f /root/.bash_history
+  rm -f /root/.viminfo
+  local passwd=$(grep ^root: /etc/master.passwd | cut -d: -f2)
+  if [[ -n $passwd ]] ; then
+    addwarn "root user has a password set. This is a potential vulnerability"
+    addwarn "consider removing the password with 'passwd -d root'."
+	# sed -e 's/^\(root:\)[^:]*\(:.*\)/\1\2/' /etc/master.passwd
+  fi
+}
+
+cleanup_ssh() {
+  info "cleaning up ssh"
+  find /etc/ssh -type f -name "ssh_host_*" | xargs rm -f    
+  rm -f /root/.ssh/authorized_keys
+}
+
+cleanup_disks() {
+  info "removing /dev/ada1 and /dev/vtbd1 entries from fstab"
+  sed -i '/^\/dev\/ada1p1/d' /etc/fstab
+  sed -i '/^\/dev\/vtbd1p1/d' /etc/fstab
+}
+
+cleanup_metadata() {
+  info "cleaning up meta data"
+  rm -f /root/user-script
+  rm -f /root/user-data
+}
+
+## MAIN ##
+
+separator
+printf "Prepare-image\n"
+separator
+
+case `uname -s` in
+  FreeBSD)
+    prepare_freebsd
+    cleanup_disks
+    cleanup_logs
+    cleanup_ssh
+    cleanup_root
+    cleanup_metadata
+    ;;
+  *)
+    warn "OS specific features not implemented"
+    ;;
+esac
+
+
+if [[ ${WARNING} != "" ]] ; then
+  printf "\n"
+  separator
+  printf "${WARNING}"
+  separator
+  printf "\n\n"
+  exit 1
+else
+  printf "\n"
+  separator
+  printf "(info) you may now snapshot your machine\n"
+  separator
+  printf "\n\n"
+  exit 0
+fi

@@ -1,0 +1,12 @@
+#!/bin/sh
+
+# PROVIDE: smartdc
+
+. /etc/rc.subr
+
+name="smartdc"
+stop_cmd=":"
+
+(/lib/smartdc/set-root-authorized-keys)
+(/lib/smartdc/format-secondary-disk)
+(/lib/smartdc/run-user-script)
