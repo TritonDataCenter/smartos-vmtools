@@ -43,9 +43,19 @@ case $(uname -s) in
 esac
 
 if [[ -n ${NC_SOCK} ]]; then
+  if [[ ! -e ${NC_SOCK} ]]; then
+    echo "mdata-get: socket not accessible" >&2
+    exit 2
+  fi
+
   coproc nc -U ${NC_SOCK}
   exec <&${COPROC[0]} 3>&${COPROC[1]}
 else
+  if [[ ! -e ${SERIAL_DEV} ]]; then
+    echo "mdata-get: socket not accessible" >&2
+    exit 2
+  fi
+
   exec <${SERIAL_DEV} 3>>${SERIAL_DEV}
 fi
 
