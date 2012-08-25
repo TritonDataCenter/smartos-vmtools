@@ -27,6 +27,14 @@ separator() {
 }
 
 prepare_freebsd() {
+  info "cleaning up network devices"
+  find /var/db -type f -name "dhclient.leases.*" | xargs rm -f
+
+  sed -ie '/^ifconfig_.*/d' /etc/rc.conf
+  sed -ie '/^hostname=.*/d' /etc/rc.conf
+
+  info "allow root login via public-key"
+  sed -i.bak -Ee 's/^#?PermitRootLogin no/PermitRootLogin without-password/' /etc/ssh/sshd_config
 }
 
 check_root() {
@@ -44,13 +52,31 @@ cleanup_logs() {
 
 cleanup_root() {
   info "cleaning up root account"
+  rm -f /root/.history
   rm -f /root/.bash_history
   rm -f /root/.viminfo
   local passwd=$(grep ^root: /etc/master.passwd | cut -d: -f2)
   if [[ -n $passwd ]] ; then
-    addwarn "root user has a password set. This is a potential vulnerability"
-    addwarn "consider removing the password with 'passwd -d root'."
-	# sed -e 's/^\(root:\)[^:]*\(:.*\)/\1\2/' /etc/master.passwd
+    echo "root user has a password set. This is a potential vulnerability"
+
+    while true ; do
+      remove_password=Y
+      read -p "Do you want to remove the password for root (Y/n) " remove_password
+      case $remove_password in
+        [Yy]* )
+          sed -ie 's/^\(root:\)[^:]*\(:.*\)/\1\2/' /etc/master.passwd
+          pwd_mkdb /etc/master.passwd
+
+          break
+        ;;
+        [Nn]* )
+          break
+        ;;
+        *)
+          echo "Plese answer either 'y' or 'n'"
+        ;;
+      esac
+    done
   fi
 }
 
