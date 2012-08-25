@@ -84,6 +84,7 @@ cleanup_ssh() {
   info "cleaning up ssh"
   find /etc/ssh -type f -name "ssh_host_*" | xargs rm -f    
   rm -f /root/.ssh/authorized_keys
+  rm -f /root/.ssh/known_hosts
 }
 
 cleanup_disks() {
