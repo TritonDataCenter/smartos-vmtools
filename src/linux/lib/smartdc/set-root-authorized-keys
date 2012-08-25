@@ -5,7 +5,7 @@
 
 if [[ ! -f /root/.ssh/authorized_keys ]]; then
   authorized_keys=$(/lib/smartdc/mdata-get root_authorized_keys 2>>/dev/console)
-  if [[ -n ${authorized_keys} ]]; then
+  if [[ $? -eq 0 && -n ${authorized_keys} ]]; then
     mkdir -p /root/.ssh
     echo "${authorized_keys}" > /root/.ssh/authorized_keys
     chmod 700 /root/.ssh
