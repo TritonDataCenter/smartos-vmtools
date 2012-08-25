@@ -10,4 +10,6 @@ if [[ $? -eq 0 ]] ; then
     chmod +x /root/user-script
     exec /root/user-script
   fi
+else
+  rm -f /root/user-script
 fi
