@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
 # needed tools / packages
 # pkg_add -P / -r arping
@@ -32,8 +32,8 @@ install_tools() {
 install_freebsd() {
   install_tools
 
-  pkg_add -P / -r arping &>/dev/null
-  pkg_add -P / -r bash &>/dev/null
+  pkg_add -P / -r ftp://ftp.freebsd.org/pub/FreeBSD/ports/amd64/packages-9-stable/Latest/arping.tbz &>/dev/null
+  pkg_add -P / -r ftp://ftp.freebsd.org/pub/FreeBSD/ports/amd64/packages-9-stable/Latest/bash.tbz &>/dev/null
 
   if [ $install_virtio == "Y" ]; then
     pkg_add -P / -r ftp://ftp.freebsd.org/pub/FreeBSD/ports/amd64/packages-9-stable/Latest/virtio-kmod.tbz &>/dev/null
