@@ -1,9 +1,5 @@
 #!/bin/sh
 
-# needed tools / packages
-# pkg_add -P / -r arping
-# pkg_add -P / -r bash
-
 fatal() {
   printf "%s\n" "$@"
   exit 1
@@ -32,11 +28,13 @@ install_tools() {
 install_freebsd() {
   install_tools
 
-  pkg_add -P / -r ftp://ftp.freebsd.org/pub/FreeBSD/ports/amd64/packages-9-stable/Latest/arping.tbz &>/dev/null
-  pkg_add -P / -r ftp://ftp.freebsd.org/pub/FreeBSD/ports/amd64/packages-9-stable/Latest/bash.tbz &>/dev/null
+  ARCH=$(uname -m)
+
+  pkg_add -P / -r ftp://ftp.freebsd.org/pub/FreeBSD/ports/${ARCH}/packages-9-stable/Latest/arping.tbz &>/dev/null
+  pkg_add -P / -r ftp://ftp.freebsd.org/pub/FreeBSD/ports/${ARCH}/packages-9-stable/Latest/bash.tbz &>/dev/null
 
   if [ $install_virtio == "Y" ]; then
-    pkg_add -P / -r ftp://ftp.freebsd.org/pub/FreeBSD/ports/amd64/packages-9-stable/Latest/virtio-kmod.tbz &>/dev/null
+    pkg_add -P / -r ftp://ftp.freebsd.org/pub/FreeBSD/ports/${ARCH}/packages-9-stable/Latest/virtio-kmod.tbz &>/dev/null
     cat >> /boot/loader.conf << EOF
 virtio_load="YES"
 virtio_pci_load="YES"
@@ -97,7 +95,14 @@ done
 
 case `uname -s` in
   FreeBSD)
-    install_freebsd
+    case `uname -r` in
+      "9.0-RELEASE")
+        install_freebsd
+      ;;
+    *)
+      fatal "Sorry. Currently only FreeBSD 9.0-RELEASE is supported"
+      ;;
+    esac
     ;;
   *)
     fatal "Sorry. Your OS is not supported by this installer"
