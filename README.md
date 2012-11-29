@@ -24,6 +24,15 @@ scripts for formatting a secondary disk, setting up networking, and fetching
 user-scripts. There is also a 'prepare-image' tool that is used to clean up a
 machine prior to turning it into an image.
 
+## FreeBSD
+
+The freebsd directory contains the 'mdata-get' tool, as well as several other
+scripts for formatting a secondary disk, setting up networking, and fetching
+user-scripts. There is also a 'prepare-image' tool that is used to clean up a
+machine prior to turning it into an image. Those scripts can be used while
+opening a shell from the installer so the machine does not need to complete a
+full bootup.
+
 
 
 
