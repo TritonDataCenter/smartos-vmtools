@@ -19,6 +19,7 @@ create_layout() {
   cp -r layout/* cache/smartos-vmtools/
   cp -r src/windows cache/smartos-vmtools/
   cp -r src/linux cache/smartos-vmtools/
+  cp -r src/freebsd cache/smartos-vmtools/
 }
 
 pack_tar() {
