@@ -34,7 +34,7 @@ install_freebsd() {
   pkg_add -P / -r ftp://ftp.freebsd.org/pub/FreeBSD/ports/${ARCH}/packages-9-stable/Latest/bash.tbz &>/dev/null
 
   if [ $install_virtio == "Y" ]; then
-    pkg_add -P / -r ftp://ftp.freebsd.org/pub/FreeBSD/ports/${ARCH}/packages-9-stable/Latest/virtio-kmod.tbz &>/dev/null
+    pkg_add -P / -r ftp://ftp.freebsd.org/pub/FreeBSD/ports/${ARCH}/packages-9-stable/Latest/virtio-kmod-9.tbz &>/dev/null
     cat >> /boot/loader.conf << EOF
 virtio_load="YES"
 virtio_pci_load="YES"
