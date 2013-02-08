@@ -96,11 +96,11 @@ done
 case `uname -s` in
   FreeBSD)
     case `uname -r` in
-      "9.0-RELEASE")
+      9\.[0123456789]-RELEASE)
         install_freebsd
       ;;
     *)
-      fatal "Sorry. Currently only FreeBSD 9.0-RELEASE is supported"
+      fatal "Sorry. Currently only FreeBSD 9.x-RELEASE is supported"
       ;;
     esac
     ;;
