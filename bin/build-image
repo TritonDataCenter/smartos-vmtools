@@ -47,7 +47,7 @@ pack_iso() {
       hdiutil makehybrid -default-volume-name "SmartOS Guest Tools" -iso -joliet \
         -o smartos-vmtools-$timestamp.iso smartos-vmtools
       ;;
-    SunOS)
+    SunOS|Linux)
       mkisofs -J -R -input-charset iso8859-1 -V "SmartOS Guest Tools" -o smartos-vmtools-$timestamp.iso \
 			  smartos-vmtools
       ;;
