@@ -72,10 +72,10 @@ while [[ ${keep_trying} -eq 1 ]]; do
   fi
 
   if [[ ${status} == "NOTFOUND" ]]; then
-    echo "No metadata for ${key}"
+    echo "No metadata for ${key}" >&2
     exit 1
   elif [[ ${status} != "SUCCESS" ]]; then
-    echo "Error getting metadata for key ${key}: ${status}"
+    echo "Error getting metadata for key ${key}: ${status}" >&2
     exit 2
   fi
 
