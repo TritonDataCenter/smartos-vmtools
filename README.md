@@ -1,5 +1,9 @@
 # SmartOS VM Guest Tools
 
+**THIS REPO IS NOW DEPRECATED**
+
+**Please refer to:** https://github.com/joyent/mibe
+
 The VM Guest tools contains scripts and drivers that are used to create
 virtualized machine images in SmartOS.
 
