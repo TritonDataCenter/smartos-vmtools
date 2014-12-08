@@ -25,16 +25,20 @@ install_tools() {
   cp -r ./lib/smartdc /lib/
 }
 
+install_rc_local() {
+  cp ./etc/rc.local /etc
+}
+
 install_debian() {
   install_tools
+  install_rc_local
   echo "Installing debian-flavour specific files..."
   cp ./etc/init/networking-interfaces-config.conf /etc/init
 }
 
 install_redhat() {
   install_tools
-  echo "Installing redhat-flavour specific files..."
-  cp ./etc/rc.local /etc
+  install_rc_local
 }
 
 if [[ $EUID -ne 0 ]] ; then
