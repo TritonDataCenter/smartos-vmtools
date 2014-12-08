@@ -1,0 +1,13 @@
+#!/bin/bash
+
+set -o errexit
+set -o pipefail
+
+device=$(netstat -rn | tr -s ' ' ';' | grep ^default | cut -d ';' -f6)
+ipaddr=$(ifconfig $device | grep 'inet ' | cut -d ' ' -f2)
+
+# We send both kinds of ARP updates, to be ultra verbose
+arping -q -c 2 -A -I $device $ipaddr
+arping -q -c 2 -U -I $device $ipaddr
+
+exit 0

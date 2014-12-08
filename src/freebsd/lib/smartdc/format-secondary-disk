@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+
+DEBUG=true
+
+fatal() {
+  printf "(fatal) %s\n" "$@"
+  exit 1;
+}
+
+debug() {
+  if [[ -n "$DEBUG" ]]; then
+    printf "(debug) %s\n" "$@"
+  fi
+}
+
+info() {
+  printf "(info) %s\n" "$@"
+}
+
+format_device() {
+  device=$1
+
+  ## Sanity check
+  gpart show $device &> /dev/null
+  if [[ $? -eq 0 ]]; then
+    debug "partition table already exists. skipping."
+    return 0
+  fi
+
+  # Otherwise we're creating the partition, formatting it, and mounting it
+  gpart destroy -F $device &> /dev/null
+  gpart create -s GPT $device &> /dev/null
+  gpart add -t freebsd-ufs $device &> /dev/null
+
+  if [[ $? -ne 0 ]]; then
+    debug "error creating partition table. skipping."
+
+    # force a destroy on gpt
+    gpart destroy -F $device &> /dev/null
+
+    return 0
+  fi
+
+  info "creating UFS2 filesystem on $device"
+  newfs -O2 -U "${device}p1" 2> /dev/null
+
+  fsentry=$(grep '${device}p1' /etc/fstab)
+  if [[ -z $fsentry ]]; then
+    info "adding fstab entry for ${device}p1"
+    [[ ! -e /data ]] && mkdir /data
+    printf "${device}p1\t/data\t\tufs\trw\t0\t0\n" >> /etc/fstab
+  fi
+
+  # Useful for prepare-image
+  mounted=$(mount -l | grep '^${device}p1 ' | wc -l)
+  if [[ "${mounted}" -eq 0 ]]; then 
+    info "mounting ${device}p1 as /data"
+    mount /data
+  fi
+}
+
+if [[ -e /dev/ada1 ]]; then
+  format_device "/dev/ada1"
+elif [[ -e /dev/vtbd1 ]]; then
+  format_device "/dev/vtbd1"
+fi
+
+echo "Done"

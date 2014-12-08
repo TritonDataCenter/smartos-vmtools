@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+
+fatal() {
+  printf "(fatal) %s\n" "$@"
+  exit 1;
+}
+
+debug() {
+  if [[ -n "$DEBUG" ]]; then
+    printf "(debug) %s\n" "$@"
+  fi
+}
+
+info() {
+  printf "(info) %s\n" "$@"
+}
+
+grep hostname= /etc/rc.conf &>/dev/null
+if [[ $? -ne 0 ]]; then
+  hostname=$(/lib/smartdc/mdata-get sdc:hostname)
+  if [[ $? -ne 0 ]]; then
+    hostname=$(/lib/smartdc/mdata-get sdc:uuid)
+
+    if [[ $? -ne 0 ]]; then
+      hostname=""
+    fi
+  fi
+
+  if [[ ! -z "$hostname" ]]; then
+    echo hostname="\"$hostname\"" >> /etc/rc.conf
+
+    /etc/rc.d/hostname restart
+  fi
+fi
+
+nic_added=n
+
+for device in $(ifconfig | grep flags | cut -d: -f1); do
+  if [[ "lo" == "${device:0:2}" ]]; then
+    continue
+  fi
+
+  grep "ifconfig_$device=" /etc/rc.conf &>/dev/null
+  if [[ $? -ne 0 ]]; then
+    echo "ifconfig_$device=\"DHCP\" # automatically added" >> /etc/rc.conf
+
+    nic_added=y
+  fi
+done
+
+if [[ "y" == "$nic_added" ]]; then
+  /etc/rc.d/netif restart
+fi

@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+
+WARNING=""
+
+addwarn() {
+  WARNING="${WARNING}(warning) $@\n"
+}
+
+fatal() {
+  printf "(fatal) %s\n" "$@"
+  exit 1
+}
+
+info() {
+  printf "(info) %s\n" "$@"
+}
+
+warn() {
+  printf "(warn) %s\n" "$@"
+}
+
+separator() {
+  for i in {1..78} ; do
+    printf "="
+  done
+  printf "\n"
+}
+
+prepare_freebsd() {
+  info "cleaning up network devices"
+  find /var/db -type f -name "dhclient.leases.*" | xargs rm -f
+
+  sed -ie '/^ifconfig_.*/d' /etc/rc.conf
+  sed -ie '/^hostname=.*/d' /etc/rc.conf
+
+  info "allow root login via public-key"
+  sed -i.bak -Ee 's/^#?PermitRootLogin no/PermitRootLogin without-password/' /etc/ssh/sshd_config
+}
+
+check_root() {
+  if [[ $EUID != 0 ]] ; then
+    echo "You must be root to run this command"
+    echo "try again with 'sudo `basename $`'"
+    exit 1
+  fi
+}
+
+cleanup_logs() {
+  info "cleaning up logs"
+  find /var/log -type f | xargs rm -f
+}
+
+cleanup_root() {
+  info "cleaning up root account"
+  rm -f /root/.history
+  rm -f /root/.bash_history
+  rm -f /root/.viminfo
+  local passwd=$(grep ^root: /etc/master.passwd | cut -d: -f2)
+  if [[ -n $passwd ]] ; then
+    echo "root user has a password set. This is a potential vulnerability"
+
+    while true ; do
+      remove_password=Y
+      read -p "Do you want to remove the password for root (Y/n) " remove_password
+      case $remove_password in
+        [Yy]* )
+          sed -ie 's/^\(root:\)[^:]*\(:.*\)/\1\2/' /etc/master.passwd
+          pwd_mkdb /etc/master.passwd
+
+          break
+        ;;
+        [Nn]* )
+          break
+        ;;
+        *)
+          echo "Plese answer either 'y' or 'n'"
+        ;;
+      esac
+    done
+  fi
+}
+
+cleanup_ssh() {
+  info "cleaning up ssh"
+  find /etc/ssh -type f -name "ssh_host_*" | xargs rm -f    
+  rm -f /root/.ssh/authorized_keys
+  rm -f /root/.ssh/known_hosts
+}
+
+cleanup_disks() {
+  info "removing /dev/ada1 and /dev/vtbd1 entries from fstab"
+  sed -i '/^\/dev\/ada1p1/d' /etc/fstab
+  sed -i '/^\/dev\/vtbd1p1/d' /etc/fstab
+}
+
+cleanup_metadata() {
+  info "cleaning up meta data"
+  rm -f /root/user-script
+  rm -f /root/user-data
+}
+
+## MAIN ##
+
+separator
+printf "Prepare-image\n"
+separator
+
+case `uname -s` in
+  FreeBSD)
+    prepare_freebsd
+    cleanup_disks
+    cleanup_logs
+    cleanup_ssh
+    cleanup_root
+    cleanup_metadata
+    ;;
+  *)
+    warn "OS specific features not implemented"
+    ;;
+esac
+
+
+if [[ ${WARNING} != "" ]] ; then
+  printf "\n"
+  separator
+  printf "${WARNING}"
+  separator
+  printf "\n\n"
+  exit 1
+else
+  printf "\n"
+  separator
+  printf "(info) you may now snapshot your machine\n"
+  separator
+  printf "\n\n"
+  exit 0
+fi
