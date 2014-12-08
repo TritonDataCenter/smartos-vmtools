@@ -1,61 +1,164 @@
 #!/usr/bin/env bash
 
-# Copyright 2011, Joyent Inc. All rights reserved
-# formats the secondary disk
+# Copyright 2014, Joyent Inc. All rights reserved
+# formats the secondary disk ( /dev/vdb1 )
+# also refered to as the /data disk
 
-DEBUG=true
+# customers can provision this disk how they like
+# by default we provision the whole disk as one partition
 
-fatal() {
-  printf "(fatal) %s\n" "$@"
-  exit 1;
-}
-
-debug() {
-  if [[ -n "$DEBUG" ]]; then
-    printf "(debug) %s\n" "$@"
-  fi
-}
-
-info() {
-  printf "(info) %s\n" "$@"
-}
+# load common functions and vars
+. /lib/smartdc/lib_smartdc_scripts.cfg
 
 SFDISK=`which sfdisk 2> /dev/null`
+PARTED=`which parted 2> /dev/null`
+TUNE2FS=`which tune2fs 2> /dev/null`
+MKE2FS=`which mke2fs 2> /dev/null`
+DATA_DISK_DEV='/dev/vdb'
+DATA_DISK_MNT='/data'
 
-if [[ ! -e /dev/vdb ]] ; then
-  fatal "secondary disk '/dev/vdb' not found. exiting."
+checkformount() {
+   fstest=$(df -h | grep "${DATA_DISK_DEV}1")
+   if [[ -n "$fstest" ]] ; then
+     fssize=$(echo $fstest | sed 's/[[:space:]]\{2,\}/ /g' | cut -d ' ' -f2)
+     lib_smartdc_info "$fssize data disk is mounted on ${DATA_DISK_DEV}1"
+     return 1
+   else
+     lib_smartdc_info "no data disk is mounted on ${DATA_DISK_DEV}1"
+     return 0
+   fi
+}
+
+# Start of Main
+
+lib_smartdc_info "Start of $(basename $0) script"
+
+if [[ ! -e ${DATA_DISK_DEV} ]] ; then
+  lib_smartdc_fatal "secondary disk '${DATA_DISK_DEV}' not found. exiting."
 fi
 
 if [[ -z $SFDISK ]] ; then
-  fatal "sfdisk binary not found. exiting."
+  lib_smartdc_fatal "sfdisk binary not found. exiting."
 fi
 
 ## Sanity check
-partexists=$(sfdisk -l /dev/vdb 2>/dev/null | grep vdb1 | awk '{print $8}')
-if [ "$partexists" != "" ] ; then
-  debug "partition table already exists. skipping."
-  exit 0
+checkformount
+return_val=$?
+if [[ "$return_val" -eq 1 ]]; then
+  lib_smartdc_fatal "data disk is already mounted"
+else 
+  lib_smartdc_info "no data disk is mounted"
+fi
+
+partexists=$($SFDISK -l $DATA_DISK_DEV 2>/dev/null | grep "${DATA_DISK_DEV}1" \
+  | awk '{print $NF}')
+if [[ -n "$partexists" ]] ; then
+  lib_smartdc_fatal "partition table already exists. skipping."
 fi
 
 # Otherwise we're creating the partition, formatting it, and mounting it
-info "creating partition /dev/vdb1"
-echo "0,,L,*" | sfdisk /dev/vdb 2>/dev/null >/dev/null
+lib_smartdc_info "creating gpt partition ${DATA_DISK_DEV}1"
+echo "0,,L,*" | $SFDISK $DATA_DISK_DEV 2>/dev/null >/dev/null
 
-info "creating ext4 filesystem on /dev/vdb1"
-mkfs.ext4 /dev/vdb1 2>/dev/null >/dev/null
+# set partition for disk to gpt
+lib_smartdc_info "creating gpt disk label on ${DATA_DISK_DEV}"
+COUNT=0
+while [[ $COUNT -lt 5 ]] ; do
+  ($PARTED -s $DATA_DISK_DEV mklabel gpt)
+  if [[ $? -gt 0 ]]; then
+    lib_smartdc_info "failed to make gpt disk label on $DATA_DISK_DEV. Trying \
+      again..."
+  else
+    lib_smartdc_info "gpt disk label on $DATA_DISK_DEV created"
+    break
+  fi
+  let COUNT=COUNT+1
+  sleep 1
+done
 
-fsentry=$(grep '/dev/vdb1' /etc/fstab)
+if [[ $COUNT -eq 5 ]]; then
+  lib_smartdc_fatal "failed to create gpt disk label on $DATA_DISK_DEV, \
+    aborting"
+fi
+
+# get size of data disk
+data_disk_size=$($PARTED -m $DATA_DISK_DEV unit MB print | grep "gpt" | \
+  cut -d: -f2 | tr -d MB)
+lib_smartdc_info "creating partition ${DATA_DISK_DEV}1 of ${data_disk_size}MB \
+  - ie. all of $DATA_DISK_DEV"
+
+($PARTED -s $DATA_DISK_DEV unit MB mkpart primary ext2 1 $data_disk_size)
+if [[ $? -gt 0 ]]; then
+   lib_smartdc_fatal "failed to make gpt partition on ${DATA_DISK_DEV} ( $? )"
+fi
+
+
+# need this sleep to let partition table to update
+# if not then ${DATA_DISK_DEV}1 will not exist
+lib_smartdc_info "sleeping for update of partition table for ${DATA_DISK_DEV}1"
+sleep 2
+
+lib_smartdc_info "creating ext4 filesystem on ${DATA_DISK_DEV}1"
+if [[ -e ${DATA_DISK_DEV}1 ]] ; then
+   $MKE2FS -vj -t ext4 ${DATA_DISK_DEV}1 2>/dev/null >/dev/null
+   lib_smartdc_info "created ext4 filesystem on ${DATA_DISK_DEV}1"
+else
+   lib_smartdc_fatal "did not create ext4 filesystem on ${DATA_DISK_DEV}1"
+fi
+
+# Check for $DATA_DISK_MNT and make it
+if [[ ! -e $DATA_DISK_MNT ]]; then
+    lib_smartdc_info "making $DATA_DISK_MNT dir mount point"
+    mkdir $DATA_DISK_MNT 
+fi
+
+# add entry to fstab so data disk is mounted on reboot
+fsentry=$(grep "${DATA_DISK_DEV}1" /etc/fstab)
 if [[ -z $fsentry ]] ; then
-  info "adding fstab entry for /dev/vdb1"
-  [[ ! -e /data ]] && mkdir /data
-  printf "/dev/vdb1\t/data\t\text4\tdefaults\t0\t0\n" >> /etc/fstab
+  lib_smartdc_info "adding fstab entry for ${DATA_DISK_DEV}1"
+  printf "${DATA_DISK_DEV}1\t\t${DATA_DISK_MNT}\t\t\text4\tdefaults\t0 0\n" \
+    >> /etc/fstab
 fi
 
-# Useful for prepare-image
-mounted=$(mount -l | grep '^/dev/vdb1 ' | wc -l)
-if [[ "${mounted}" -eq 0 ]] ; then 
-  info "mounting /dev/vdb1 as /data"
-  mount /data
+# mount the data disk
+lib_smartdc_info "mounting ${DATA_DISK_DEV}1 as $DATA_DISK_MNT"
+$MOUNT_BIN $DATA_DISK_MNT 
+
+checkformount
+
+return_val=$?
+if [[ "$return_val" -eq 1 ]]; then
+  lib_smartdc_info "data disk is mounted"
+else 
+  lib_smartdc_fatal "no data disk is mounted"
 fi
 
-echo "Done"
+# reducing reserve space from default of 1%
+# on larger disks this takes up more space than needed
+# set reserved block percentage based on disk size
+fssize=$(df -k | grep "${DATA_DISK_DEV}1" | sed 's/[[:space:]]\{2,\}/ /g' | \
+  cut -d ' ' -f2 )
+
+if [[ $fssize -le 15728640 ]]; then
+   RESERVE_BLOCK_PERCENTAGE="0.5"
+elif [[ $fssize -le 31457280 ]]; then
+   RESERVE_BLOCK_PERCENTAGE="0.25"
+elif [[ $fssize -le 104857600 ]]; then
+   RESERVE_BLOCK_PERCENTAGE="0.1"
+elif [[ $fssize -le 209715200 ]]; then
+   RESERVE_BLOCK_PERCENTAGE="0.05"
+else
+   RESERVE_BLOCK_PERCENTAGE="0.02"
+fi
+
+lib_smartdc_info "setting reserved blocks to ${RESERVE_BLOCK_PERCENTAGE}% \
+  on ${DATA_DISK_DEV}1"
+$TUNE2FS -m $RESERVE_BLOCK_PERCENTAGE ${DATA_DISK_DEV}1 2>/dev/null >/dev/null
+
+# reducing time for fsck
+lib_smartdc_info "setting auto fsck to 6 months on ${DATA_DISK_DEV}1"
+$TUNE2FS -c 0 -i 6m ${DATA_DISK_DEV}1 2>/dev/null >/dev/null
+
+lib_smartdc_info "End of script"
+
+exit 0

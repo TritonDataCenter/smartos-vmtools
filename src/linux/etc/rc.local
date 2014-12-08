@@ -86,7 +86,9 @@ case `uname -s` in
 esac
 
 (/lib/smartdc/set-root-authorized-keys)
-(/lib/smartdc/format-secondary-disk)
+if [[ ! -f /lib/smartdc/.firstboot-complete-do-not-delete ]] ; then
+  (/lib/smartdc/firstboot)
+fi
 (/lib/smartdc/run-user-script)
 
 if [[ ! -d /var/lock/subsys ]] ; then
